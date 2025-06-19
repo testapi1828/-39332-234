@@ -21,7 +21,7 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TARGET_LOCATION = (33.3129505, 44.3297042)
 MAX_DISTANCE_METERS = 25
 CSV_FILE = "attendance_records.csv"
-LOCATION, ACTION_TYPE = range(2)
+LOCATION, ACTION_TYPE, GET_LOCATION = range(3)
 
 
 def save_record_to_csv(user_id, user_name, action, timestamp):
@@ -47,7 +47,7 @@ async def start_command(update: telegram.Update, context: ContextTypes.DEFAULT_T
     await update.message.reply_text(welcome_message)
 
 
-# -- الأوامر التشخيصية الجديدة (بالطريقة المبسطة) --
+# -- الأوامر التشخيصية --
 async def whatsmylocation_command(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
     """يطلب من المستخدم إرسال موقعه يدوياً"""
     await update.message.reply_text(
@@ -59,16 +59,19 @@ async def get_and_reply_with_coords(update: telegram.Update, context: ContextTyp
     user_location = update.message.location
     lat = user_location.latitude
     lon = user_location.longitude
+    # تم تعديل هذا الجزء بإزالة parse_mode
     response_text = (
         "الإحداثيات الدقيقة التي استلمتها من هاتفك هي:\n\n"
-        f"Latitude: `{lat}`\n"
-        f"Longitude: `{lon}`\n\n"
+        f"Latitude: {lat}\n"
+        f"Longitude: {lon}\n\n"
         "الرجاء نسخ هذين الرقمين وإرسالهما لي. هذه هي الإحداثيات التي سنستخدمها كالموقع الصحيح."
     )
-    await update.message.reply_text(response_text, parse_mode='MarkdownV2')
+    # -- تم التصحيح هنا --
+    # أزلنا التنسيق المعقد الذي كان يسبب الخطأ
+    await update.message.reply_text(response_text, reply_markup=telegram.ReplyKeyboardRemove())
 
 
-# --- أوامر تسجيل الحضور والانصراف (تبقى كما هي) ---
+# --- أوامر تسجيل الحضور والانصراف ---
 async def request_location(
     update: telegram.Update, context: ContextTypes.DEFAULT_TYPE, action: str
 ):
@@ -93,7 +96,6 @@ async def checkout_start(update: telegram.Update, context: ContextTypes.DEFAULT_
 
 
 async def location_handler_for_checkin(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
-    """هذه الدالة الآن مخصصة فقط للتعامل مع الموقع القادم من أزرار الحضور/الانصراف"""
     user = update.effective_user
     user_location = update.message.location
     action = context.user_data.get("action", "غير محدد")
@@ -119,7 +121,6 @@ async def location_handler_for_checkin(update: telegram.Update, context: Context
 
 
 async def records_command(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (الكود كما هو بدون تغيير)
     user_id = update.effective_user.id
     try:
         records = []
@@ -161,7 +162,6 @@ def main():
     
     print("Bot is starting...")
     
-    # معالج محادثة الحضور والانصراف (يبقى كما هو)
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("checkin", checkin_start),
@@ -177,12 +177,10 @@ def main():
     
     application.add_handler(conv_handler)
     
-    # إضافة الأوامر البسيطة
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("records", records_command))
-    application.add_handler(CommandHandler("whatsmylocation", whatsmylocation_command)) # <-- الأمر التشخيصي
+    application.add_handler(CommandHandler("whatsmylocation", whatsmylocation_command))
     
-    # إضافة معالج لكل رسائل الموقع (للتشخيص)
     application.add_handler(MessageHandler(filters.LOCATION & ~filters.VIA_BOT, get_and_reply_with_coords))
     
     keep_alive()
