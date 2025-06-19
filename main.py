@@ -19,7 +19,7 @@ from keep_alive import keep_alive  # <-- سطر جديد
 # --- الإعدادات الرئيسية ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TARGET_LOCATION = (33.3111579, 44.3283534)
-MAX_DISTANCE_METERS = 5
+MAX_DISTANCE_METERS = 25
 CSV_FILE = "attendance_records.csv"
 LOCATION, ACTION_TYPE = range(2)
 
