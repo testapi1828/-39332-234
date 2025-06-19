@@ -7,19 +7,18 @@ from telegram.ext import (
     MessageHandler,
     filters,
     ConversationHandler,
+    PicklePersistence,
 )
 import os
 import datetime
 import csv
 from geopy.distance import geodesic
 
-# استيراد دالة التشغيل الدائم من الملف الجديد
 from keep_alive import keep_alive
 
 # --- الإعدادات الرئيسية ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-TARGET_LOCATION = (33.3111579, 44.3283534)
-# تم تعديل المسافة لتكون 25 متراً لإعطاء هامش لخطأ دقة الـ GPS
+TARGET_LOCATION = (33.3111579, 44.3283534) # <-- الإحداثيات الحالية التي سنختبرها
 MAX_DISTANCE_METERS = 25
 CSV_FILE = "attendance_records.csv"
 LOCATION, ACTION_TYPE = range(2)
@@ -37,15 +36,24 @@ def save_record_to_csv(user_id, user_name, action, timestamp):
 async def start_command(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     welcome_message = (
-        f"أهلاً بك يا {user.first_name} في بوت الحضور والانصراف المستند إلى الموقع.\n\n"
+        f"أهلاً بك يا {user.first_name} في بوت الحضور والانصراف.\n\n"
         "استخدم الأوامر التالية:\n"
-        "📍 /checkin - لبدء عملية تسجيل الحضور.\n"
-        "👋 /checkout - لبدء عملية تسجيل الانصراف.\n"
-        "📋 /records - لعرض سجلاتك الخاصة.\n\n"
-        "عند طلب الحضور أو الانصراف، سيطلب منك البوت مشاركة موقعك."
+        "📍 /checkin - لتسجيل الحضور.\n"
+        "👋 /checkout - لتسجيل الانصراف.\n"
+        "📋 /records - لعرض سجلاتك.\n"
+        "🔍 /showlocation - لعرض الموقع المستهدف المسجل." # <-- تم إضافة شرح الأمر الجديد
     )
     await update.message.reply_text(welcome_message)
     return ConversationHandler.END
+
+
+# -- هذا هو الأمر الجديد الذي تمت إضافته للتشخيص --
+async def showlocation_command(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
+    """يرسل للمستخدم الموقع المستهدف المسجل في النظام"""
+    lat = TARGET_LOCATION[0]
+    lon = TARGET_LOCATION[1]
+    await update.message.reply_text("هذا هو الموقع المستهدف المسجل حالياً في النظام:")
+    await update.message.reply_location(latitude=lat, longitude=lon)
 
 
 async def request_location(
@@ -89,8 +97,6 @@ async def location_handler(update: telegram.Update, context: ContextTypes.DEFAUL
             f"أنت على بعد {distance:.2f} متر من الموقع المحدد."
         )
     else:
-        # -- تم تصحيح هذا الجزء --
-        # الآن سيتم عرض القيمة الصحيحة (25 متر) في رسالة الخطأ
         await update.message.reply_text(
             f"❌ فشل التسجيل.\n"
             f"أنت بعيد جداً عن الموقع المسموح به. المسافة الحالية هي {distance:.2f} متر، والحد المسموح هو {MAX_DISTANCE_METERS} متر."
@@ -128,8 +134,18 @@ def main():
     if not TELEGRAM_TOKEN:
         print("خطأ: لم يتم العثور على رمز التليجرام. تأكد من إضافته في Secrets.")
         return
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
+
+    persistence = PicklePersistence(filepath="bot_persistence")
+
+    application = (
+        Application.builder()
+        .token(TELEGRAM_TOKEN)
+        .persistence(persistence)
+        .build()
+    )
+    
     print("Bot is starting...")
+    
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("checkin", checkin_start),
@@ -139,10 +155,15 @@ def main():
             LOCATION: [MessageHandler(filters.LOCATION, location_handler)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
+        persistent=True,
+        name="attendance_conversation",
     )
     application.add_handler(conv_handler)
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("records", records_command))
+    # -- تم إضافة معالج الأمر التشخيصي هنا --
+    application.add_handler(CommandHandler("showlocation", showlocation_command))
+
     
     keep_alive()
 
