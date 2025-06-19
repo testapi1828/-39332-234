@@ -18,11 +18,10 @@ from keep_alive import keep_alive
 
 # --- الإعدادات الرئيسية ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-# -- تم تحديث الإحداثيات هنا إلى الموقع الصحيح --
-TARGET_LOCATION = (33.3129505, 44.3297042)
+TARGET_LOCATION = (33.3129505, 44.3297042) # الإحداثيات الحالية (التي سنغيرها قريباً)
 MAX_DISTANCE_METERS = 25
 CSV_FILE = "attendance_records.csv"
-LOCATION, ACTION_TYPE = range(2)
+LOCATION, ACTION_TYPE, GET_LOCATION = range(3)
 
 
 def save_record_to_csv(user_id, user_name, action, timestamp):
@@ -37,11 +36,13 @@ def save_record_to_csv(user_id, user_name, action, timestamp):
 async def start_command(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     welcome_message = (
-        f"أهلاً بك يا {user.first_name} في بوت الحضور والانصراف المستند إلى الموقع.\n\n"
+        f"أهلاً بك يا {user.first_name} في بوت الحضور والانصراف.\n\n"
         "استخدم الأوامر التالية:\n"
-        "📍 /checkin - لبدء عملية تسجيل الحضور.\n"
-        "👋 /checkout - لبدء عملية تسجيل الانصراف.\n"
-        "📋 /records - لعرض سجلاتك الخاصة."
+        "📍 /checkin - لتسجيل الحضور.\n"
+        "👋 /checkout - لتسجيل الانصراف.\n"
+        "📋 /records - لعرض سجلاتك.\n\n"
+        "للمساعدة في التشخيص، استخدم:\n"
+        "🛰️ /whatsmylocation - لمعرفة إحداثيات موقعك الحالي."
     )
     await update.message.reply_text(welcome_message)
     return ConversationHandler.END
@@ -95,7 +96,35 @@ async def location_handler(update: telegram.Update, context: ContextTypes.DEFAUL
     return ConversationHandler.END
 
 
+# -- الأوامر التشخيصية الجديدة --
+async def whatsmylocation_start(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
+    """يطلب من المستخدم مشاركة موقعه ليعرض له الإحداثيات"""
+    keyboard = [[telegram.KeyboardButton("🛰️ إرسال موقعي الحالي لمعرفة الإحداثيات", request_location=True)]]
+    reply_markup = telegram.ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+    await update.message.reply_text(
+        "للحصول على إحداثياتك الدقيقة، يرجى الضغط على الزر أدناه.",
+        reply_markup=reply_markup
+    )
+    return GET_LOCATION
+
+async def reply_with_location_coords(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
+    """يستلم الموقع من المستخدم ويرد عليه بالإحداثيات كنص"""
+    user_location = update.message.location
+    lat = user_location.latitude
+    lon = user_location.longitude
+    # استخدام backticks لجعل النسخ سهلاً
+    response_text = (
+        "الإحداثيات الدقيقة التي استلمتها من هاتفك هي:\n\n"
+        f"Latitude: `{lat}`\n"
+        f"Longitude: `{lon}`\n\n"
+        "الرجاء نسخ هذين الرقمين وإرسالهما لي. هذه هي الإحداثيات التي سنستخدمها كالموقع الصحيح."
+    )
+    await update.message.reply_text(response_text, reply_markup=telegram.ReplyKeyboardRemove(), parse_mode='MarkdownV2')
+    return ConversationHandler.END
+
+
 async def records_command(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
+    # ... (الكود كما هو بدون تغيير)
     user_id = update.effective_user.id
     try:
         records = []
@@ -137,6 +166,7 @@ def main():
     
     print("Bot is starting...")
     
+    # معالج محادثة الحضور والانصراف
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("checkin", checkin_start),
@@ -149,7 +179,20 @@ def main():
         persistent=True,
         name="attendance_conversation",
     )
+    
+    # معالج محادثة الحصول على الإحداثيات (للتشخيص)
+    location_diag_handler = ConversationHandler(
+        entry_points=[CommandHandler("whatsmylocation", whatsmylocation_start)],
+        states={
+            GET_LOCATION: [MessageHandler(filters.LOCATION, reply_with_location_coords)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        persistent=True,
+        name="diag_conversation"
+    )
+
     application.add_handler(conv_handler)
+    application.add_handler(location_diag_handler) # <-- إضافة المعالج الجديد
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("records", records_command))
     
