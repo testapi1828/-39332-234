@@ -18,7 +18,8 @@ from keep_alive import keep_alive
 
 # --- الإعدادات الرئيسية ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-TARGET_LOCATION = (33.3111579, 44.3283534) # <-- الإحداثيات الحالية التي سنختبرها
+# -- تم تحديث الإحداثيات هنا إلى الموقع الصحيح --
+TARGET_LOCATION = (33.3129505, 44.3297042)
 MAX_DISTANCE_METERS = 25
 CSV_FILE = "attendance_records.csv"
 LOCATION, ACTION_TYPE = range(2)
@@ -36,24 +37,14 @@ def save_record_to_csv(user_id, user_name, action, timestamp):
 async def start_command(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     welcome_message = (
-        f"أهلاً بك يا {user.first_name} في بوت الحضور والانصراف.\n\n"
+        f"أهلاً بك يا {user.first_name} في بوت الحضور والانصراف المستند إلى الموقع.\n\n"
         "استخدم الأوامر التالية:\n"
-        "📍 /checkin - لتسجيل الحضور.\n"
-        "👋 /checkout - لتسجيل الانصراف.\n"
-        "📋 /records - لعرض سجلاتك.\n"
-        "🔍 /showlocation - لعرض الموقع المستهدف المسجل." # <-- تم إضافة شرح الأمر الجديد
+        "📍 /checkin - لبدء عملية تسجيل الحضور.\n"
+        "👋 /checkout - لبدء عملية تسجيل الانصراف.\n"
+        "📋 /records - لعرض سجلاتك الخاصة."
     )
     await update.message.reply_text(welcome_message)
     return ConversationHandler.END
-
-
-# -- هذا هو الأمر الجديد الذي تمت إضافته للتشخيص --
-async def showlocation_command(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
-    """يرسل للمستخدم الموقع المستهدف المسجل في النظام"""
-    lat = TARGET_LOCATION[0]
-    lon = TARGET_LOCATION[1]
-    await update.message.reply_text("هذا هو الموقع المستهدف المسجل حالياً في النظام:")
-    await update.message.reply_location(latitude=lat, longitude=lon)
 
 
 async def request_location(
@@ -161,9 +152,6 @@ def main():
     application.add_handler(conv_handler)
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("records", records_command))
-    # -- تم إضافة معالج الأمر التشخيصي هنا --
-    application.add_handler(CommandHandler("showlocation", showlocation_command))
-
     
     keep_alive()
 
