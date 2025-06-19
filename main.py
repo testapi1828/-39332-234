@@ -14,11 +14,12 @@ import csv
 from geopy.distance import geodesic
 
 # استيراد دالة التشغيل الدائم من الملف الجديد
-from keep_alive import keep_alive  # <-- سطر جديد
+from keep_alive import keep_alive
 
 # --- الإعدادات الرئيسية ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TARGET_LOCATION = (33.3111579, 44.3283534)
+# تم تعديل المسافة لتكون 25 متراً لإعطاء هامش لخطأ دقة الـ GPS
 MAX_DISTANCE_METERS = 25
 CSV_FILE = "attendance_records.csv"
 LOCATION, ACTION_TYPE = range(2)
@@ -88,6 +89,8 @@ async def location_handler(update: telegram.Update, context: ContextTypes.DEFAUL
             f"أنت على بعد {distance:.2f} متر من الموقع المحدد."
         )
     else:
+        # -- تم تصحيح هذا الجزء --
+        # الآن سيتم عرض القيمة الصحيحة (25 متر) في رسالة الخطأ
         await update.message.reply_text(
             f"❌ فشل التسجيل.\n"
             f"أنت بعيد جداً عن الموقع المسموح به. المسافة الحالية هي {distance:.2f} متر، والحد المسموح هو {MAX_DISTANCE_METERS} متر."
@@ -140,11 +143,9 @@ def main():
     application.add_handler(conv_handler)
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("records", records_command))
+    
+    keep_alive()
 
-    # تشغيل خادم الويب في الخلفية لإبقاء البوت نشطاً
-    keep_alive()  # <-- سطر جديد
-
-    # تشغيل البوت
     application.run_polling()
 
 
