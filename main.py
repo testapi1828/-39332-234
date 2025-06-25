@@ -22,7 +22,12 @@ from keep_alive import keep_alive
 
 # --- الإعدادات الرئيسية ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-ADMIN_ID = 641817858  # <--- هام: تأكد من وضع الـ ID الخاص بك هنا
+
+# ******************************************************************
+# ** تم وضع رقم الأدمن الخاص بك بشكل صحيح **
+ADMIN_ID = 641817858
+# ******************************************************************
+
 TARGET_LOCATION = (33.311317, 44.330635)
 MAX_DISTANCE_METERS = 25
 CSV_FILE = "attendance_records.csv"
@@ -55,14 +60,10 @@ def save_record_to_csv(user_id, user_name, action, timestamp):
             writer.writerow(["UserID", "UserName", "Action", "Timestamp"])
         writer.writerow([user_id, user_name, action, timestamp])
 
-
 # --- دوال المهام ---
 async def send_file_periodically(application: Application):
     while True:
         await asyncio.sleep(600)
-        if ADMIN_ID == 641817858:
-            print("ADMIN_ID has not been set. Skipping periodic file send.")
-            continue
         try:
             if os.path.exists(CSV_FILE) and os.path.getsize(CSV_FILE) > 0:
                 print(f"Sending periodic backup to ADMIN_ID: {ADMIN_ID}")
@@ -89,7 +90,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👋 /checkout - لتسجيل الانصراف.\n"
         "📋 /records - لعرض سجلاتك الخاصة."
     )
-    if user.id == ADMIN_ID:641817858:
+    if user.id == ADMIN_ID:
         welcome_message += (
             "\n\n--- أوامر الأدمن ---\n"
             "📁 /getrecordsfile - للحصول على ملف السجلات الكامل.\n"
@@ -101,17 +102,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def unified_location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # -- تم تصحيح هذا السطر --
-    # الطريقة الصحيحة للتحقق من أن الرسالة ليست معاد توجيهها
     if update.message.forward_origin:
         await update.message.reply_text("❌ لا يمكن تسجيل الحضور باستخدام موقع معاد توجيهه. يرجى إرسال موقعك الحالي مباشرة.")
         return ConversationHandler.END
-
-    # إذا كان الموقع مباشراً، أكمل عملية تسجيل الحضور
+        
     user = update.effective_user
     user_location = update.message.location
     action = context.user_data.get("action", "غير محدد")
-    
     if not action or action == "غير محدد":
         await update.message.reply_text("حدث خطأ، يرجى البدء من جديد باستخدام /checkin أو /checkout.")
         return ConversationHandler.END
@@ -124,9 +121,8 @@ async def unified_location_handler(update: Update, context: ContextTypes.DEFAULT
         save_record_to_csv(user.id, user.first_name, action, current_time)
         await update.message.reply_text(f"✅ تم تسجيل {action} بنجاح!\nأنت على بعد {distance:.2f} متر من الموقع المحدد.")
         try:
-            if ADMIN_ID != 123456789:
-                notification_text = f"🔔 تنبيه: قام المستخدم {user.first_name} ({user.id}) بتسجيل '{action}'."
-                await context.bot.send_message(chat_id=ADMIN_ID, text=notification_text)
+            notification_text = f"🔔 تنبيه: قام المستخدم {user.first_name} ({user.id}) بتسجيل '{action}'."
+            await context.bot.send_message(chat_id=ADMIN_ID, text=notification_text)
         except Exception as e:
             print(f"Failed to send notification to admin: {e}")
     else:
@@ -149,7 +145,7 @@ async def checkout_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def remote_checkin_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    if user.id != ADMIN_ID:641817858:
+    if user.id != ADMIN_ID:
         await update.message.reply_text("عذراً، هذا الأمر مخصص للأدمن فقط.")
         return ConversationHandler.END
     all_users = get_all_users_from_csv()
@@ -172,16 +168,15 @@ async def remote_checkin_button_handler(update: Update, context: ContextTypes.DE
     save_record_to_csv(selected_user_id, selected_user_name, 'حضور (عن بعد)', current_time)
     await query.edit_message_text(text=f"✅ تم تسجيل حضور (عن بعد) للمستخدم: {selected_user_name}")
     try:
-        if ADMIN_ID != 641817858:
-            notification_text = f"🔔 تنبيه إداري: قمت بتسجيل حضور عن بعد للمستخدم {selected_user_name}."
-            await context.bot.send_message(chat_id=ADMIN_ID, text=notification_text)
+        notification_text = f"🔔 تنبيه إداري: قمت بتسجيل حضور عن بعد للمستخدم {selected_user_name}."
+        await context.bot.send_message(chat_id=ADMIN_ID, text=notification_text)
     except Exception as e:
         print(f"Failed to send admin notification for remote checkin: {e}")
     return ConversationHandler.END
 
 async def get_records_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    if user.id != ADMIN_ID:641817858:
+    if user.id != ADMIN_ID:
         await update.message.reply_text("عذراً، هذا الأمر مخصص للأدمن فقط.")
         return
     try:
@@ -248,7 +243,7 @@ async def records_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def my_id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    await update.message.reply_text(f"الـ ID الخاص بك هو:\n`{user_id}`\n\nقم بنسخ هذا الرقم ووضعه في متغير `ADMIN_ID` في الكود.", parse_mode='MarkdownV2')
+    await update.message.reply_text(f"الـ ID الخاص بك هو:\n`{user_id}`\n\nهذا هو الرقم الذي يجب وضعه في متغير `ADMIN_ID`.", parse_mode='MarkdownV2')
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("تم إلغاء العملية.", reply_markup=telegram.ReplyKeyboardRemove())
