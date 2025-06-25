@@ -89,7 +89,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👋 /checkout - لتسجيل الانصراف.\n"
         "📋 /records - لعرض سجلاتك الخاصة."
     )
-    if user.id == ADMIN_ID:
+    if user.id == ADMIN_ID:641817858:
         welcome_message += (
             "\n\n--- أوامر الأدمن ---\n"
             "📁 /getrecordsfile - للحصول على ملف السجلات الكامل.\n"
@@ -100,14 +100,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(welcome_message)
     return ConversationHandler.END
 
-# --- تم دمج دالة معالجة الموقع في دالة واحدة قوية ---
 async def unified_location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # الخطوة الأولى: التحقق من أن الموقع ليس معاد توجيهه
-    if update.message.forward_date:
+    # -- تم تصحيح هذا السطر --
+    # الطريقة الصحيحة للتحقق من أن الرسالة ليست معاد توجيهها
+    if update.message.forward_origin:
         await update.message.reply_text("❌ لا يمكن تسجيل الحضور باستخدام موقع معاد توجيهه. يرجى إرسال موقعك الحالي مباشرة.")
         return ConversationHandler.END
 
-    # الخطوة الثانية: إذا كان الموقع مباشراً، أكمل عملية تسجيل الحضور
+    # إذا كان الموقع مباشراً، أكمل عملية تسجيل الحضور
     user = update.effective_user
     user_location = update.message.location
     action = context.user_data.get("action", "غير محدد")
@@ -124,7 +124,7 @@ async def unified_location_handler(update: Update, context: ContextTypes.DEFAULT
         save_record_to_csv(user.id, user.first_name, action, current_time)
         await update.message.reply_text(f"✅ تم تسجيل {action} بنجاح!\nأنت على بعد {distance:.2f} متر من الموقع المحدد.")
         try:
-            if ADMIN_ID != 641817858:
+            if ADMIN_ID != 123456789:
                 notification_text = f"🔔 تنبيه: قام المستخدم {user.first_name} ({user.id}) بتسجيل '{action}'."
                 await context.bot.send_message(chat_id=ADMIN_ID, text=notification_text)
         except Exception as e:
@@ -149,7 +149,7 @@ async def checkout_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def remote_checkin_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    if user.id != ADMIN_ID:
+    if user.id != ADMIN_ID:641817858:
         await update.message.reply_text("عذراً، هذا الأمر مخصص للأدمن فقط.")
         return ConversationHandler.END
     all_users = get_all_users_from_csv()
@@ -181,7 +181,7 @@ async def remote_checkin_button_handler(update: Update, context: ContextTypes.DE
 
 async def get_records_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    if user.id != ADMIN_ID:
+    if user.id != ADMIN_ID:641817858:
         await update.message.reply_text("عذراً، هذا الأمر مخصص للأدمن فقط.")
         return
     try:
@@ -264,7 +264,6 @@ def main():
     application = (Application.builder().token(TELEGRAM_TOKEN).persistence(persistence).post_init(post_init).build())
     print("Bot is starting...")
 
-    # معالج المحادثات الشامل
     master_conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("checkin", checkin_start),
@@ -272,7 +271,6 @@ def main():
             CommandHandler("remotecheckin", remote_checkin_start),
         ],
         states={
-            # استخدام دالة موحدة للتعامل مع الموقع
             LOCATION: [MessageHandler(filters.LOCATION, unified_location_handler)],
             SELECT_USER_REMOTE: [CallbackQueryHandler(remote_checkin_button_handler)],
         },
