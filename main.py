@@ -16,27 +16,24 @@ import datetime
 import csv
 import asyncio
 from geopy.distance import geodesic
+from zoneinfo import ZoneInfo # <-- استيراد مكتبة التوقيت الزمني
 
 from keep_alive import keep_alive
 
 # --- الإعدادات الرئيسية ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-
-# ******************************************************************
-# ** تم وضع رقم الأدمن الخاص بك بشكل صحيح **
-ADMIN_ID = 641817858
-# ******************************************************************
-
+ADMIN_ID = 641817858 # <-- تم وضع الـ ID الخاص بك
 TARGET_LOCATION = (33.311317, 44.330635)
 MAX_DISTANCE_METERS = 25
 CSV_FILE = "attendance_records.csv"
+# تحديد التوقيت الزمني لبغداد
+BAGHDAD_TZ = ZoneInfo("Asia/Baghdad")
 LOCATION = 0
 
 
 # --- دوال مساعدة ---
 def save_record_to_csv(user_id, user_name, action, timestamp):
     file_exists = os.path.isfile(CSV_FILE)
-    # استخدام utf-8-sig لإصلاح مشكلة اللغة العربية في Excel
     with open(CSV_FILE, mode='a', newline='', encoding='utf-8-sig') as file:
         writer = csv.writer(file)
         if not file_exists:
@@ -46,29 +43,26 @@ def save_record_to_csv(user_id, user_name, action, timestamp):
 
 # --- دوال المهام ---
 async def send_file_periodically(application: Application):
-    """تقوم بإرسال ملف السجلات كل 10 دقائق"""
     while True:
-        await asyncio.sleep(600) # 10 دقائق
-        
-        # تم تصحيح هذا الشرط. سيعمل الآن بشكل صحيح.
-        if ADMIN_ID == 123456789:
+        await asyncio.sleep(600)
+        if ADMIN_ID == 123456789: # Kept placeholder here for safety
             print("ADMIN_ID placeholder is still in use. Skipping periodic file send.")
             continue
-
         try:
             if os.path.exists(CSV_FILE) and os.path.getsize(CSV_FILE) > 0:
                 print(f"Sending periodic backup to ADMIN_ID: {ADMIN_ID}")
+                # استخدام توقيت بغداد في اسم الملف
+                caption_time = datetime.datetime.now(BAGHDAD_TZ).strftime('%Y-%m-%d %H:%M:%S')
                 with open(CSV_FILE, 'rb') as doc:
                     await application.bot.send_document(
                         chat_id=ADMIN_ID,
                         document=doc,
-                        caption=f"نسخة احتياطية تلقائية للسجلات - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                        caption=f"نسخة احتياطية تلقائية للسجلات - {caption_time}"
                     )
         except Exception as e:
             print(f"Failed to send periodic backup: {e}")
 
 async def post_init(application: Application):
-    """دالة تعمل مرة واحدة بعد تشغيل البوت لبدء المهمة المجدولة"""
     asyncio.create_task(send_file_periodically(application))
 
 
@@ -99,7 +93,6 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_location = update.message.location
     action = context.user_data.get("action", "غير محدد")
-
     if not action or action == "غير محدد":
         await update.message.reply_text("حدث خطأ، يرجى البدء من جديد باستخدام /checkin أو /checkout.")
         return ConversationHandler.END
@@ -108,7 +101,8 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("جاري التحقق من موقعك...", reply_markup=ReplyKeyboardRemove())
     
     if distance <= MAX_DISTANCE_METERS:
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # استخدام توقيت بغداد عند تسجيل الوقت
+        current_time = datetime.datetime.now(BAGHDAD_TZ).strftime("%Y-%m-%d %H:%M:%S")
         save_record_to_csv(user.id, user.first_name, action, current_time)
         await update.message.reply_text(f"✅ تم تسجيل {action} بنجاح!\nأنت على بعد {distance:.2f} متر من الموقع المحدد.")
         try:
