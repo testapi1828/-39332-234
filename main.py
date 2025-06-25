@@ -22,25 +22,23 @@ from keep_alive import keep_alive
 
 # --- الإعدادات الرئيسية ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-ADMIN_ID = 123456789  # <--- هام: تأكد من وضع الـ ID الخاص بك هنا
+ADMIN_ID = 641817858  # <--- هام: تأكد من وضع الـ ID الخاص بك هنا
 TARGET_LOCATION = (33.311317, 44.330635)
 MAX_DISTANCE_METERS = 25
 CSV_FILE = "attendance_records.csv"
-# تعريف حالات المحادثات
 LOCATION, SELECT_USER_REMOTE = range(2)
 
 
 # --- دوال مساعدة ---
 def get_all_users_from_csv():
-    """تقرأ ملف السجلات وتعيد قاموساً بأسماء وأرقام المستخدمين الفريدين"""
     users = {}
     try:
         with open(CSV_FILE, mode='r', newline='', encoding='utf-8-sig') as infile:
             reader = csv.reader(infile)
             try:
-                header = next(reader)  # تخطي العنوان
+                header = next(reader)
             except StopIteration:
-                return {} # الملف فارغ
+                return {}
             for row in reader:
                 user_id, user_name = row[0], row[1]
                 if user_id not in users:
@@ -60,10 +58,9 @@ def save_record_to_csv(user_id, user_name, action, timestamp):
 
 # --- دوال المهام ---
 async def send_file_periodically(application: Application):
-    """تقوم بإرسال ملف السجلات كل 10 دقائق"""
     while True:
         await asyncio.sleep(600)
-        if ADMIN_ID == 123456789:
+        if ADMIN_ID == 641817858:
             print("ADMIN_ID has not been set. Skipping periodic file send.")
             continue
         try:
@@ -81,6 +78,8 @@ async def send_file_periodically(application: Application):
 async def post_init(application: Application):
     asyncio.create_task(send_file_periodically(application))
 
+
+# --- دوال الأوامر الرئيسية ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     welcome_message = (
@@ -99,7 +98,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🆔 /myid - لعرض الـ ID الخاص بك."
         )
     await update.message.reply_text(welcome_message)
-    return ConversationHandler.END # جعل أمر البدء ينهي أي محادثة عالقة
+    return ConversationHandler.END
 
 async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -112,7 +111,7 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_record_to_csv(user.id, user.first_name, action, current_time)
         await update.message.reply_text(f"✅ تم تسجيل {action} بنجاح!\nأنت على بعد {distance:.2f} متر من الموقع المحدد.")
         try:
-            if ADMIN_ID != 123456789:
+            if ADMIN_ID != 641817858:
                 notification_text = f"🔔 تنبيه: قام المستخدم {user.first_name} ({user.id}) بتسجيل '{action}'."
                 await context.bot.send_message(chat_id=ADMIN_ID, text=notification_text)
         except Exception as e:
@@ -120,6 +119,13 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"❌ فشل التسجيل.\nأنت بعيد جداً عن الموقع المسموح به. المسافة الحالية هي {distance:.2f} متر، والحد المسموح هو {MAX_DISTANCE_METERS} متر.")
     return ConversationHandler.END
+
+# --- دالة جديدة لمعالجة المواقع المعاد توجيهها ---
+async def forwarded_location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """ترفض أي موقع معاد توجيهه"""
+    await update.message.reply_text("❌ لا يمكن تسجيل الحضور باستخدام موقع معاد توجيهه. يرجى إرسال موقعك الحالي مباشرة.")
+    return ConversationHandler.END
+
 
 async def request_location(update: Update, context: ContextTypes.DEFAULT_TYPE, action: str):
     context.user_data["action"] = action
@@ -159,7 +165,7 @@ async def remote_checkin_button_handler(update: Update, context: ContextTypes.DE
     save_record_to_csv(selected_user_id, selected_user_name, 'حضور (عن بعد)', current_time)
     await query.edit_message_text(text=f"✅ تم تسجيل حضور (عن بعد) للمستخدم: {selected_user_name}")
     try:
-        if ADMIN_ID != 123456789:
+        if ADMIN_ID != 641817858:
             notification_text = f"🔔 تنبيه إداري: قمت بتسجيل حضور عن بعد للمستخدم {selected_user_name}."
             await context.bot.send_message(chat_id=ADMIN_ID, text=notification_text)
     except Exception as e:
@@ -189,11 +195,14 @@ async def get_today_records_file(update: Update, context: ContextTypes.DEFAULT_T
         today_records = []
         with open(CSV_FILE, mode='r', newline='', encoding='utf-8-sig') as infile:
             reader = csv.reader(infile)
-            header = next(reader)
-            today_records.append(header)
-            for row in reader:
-                if row[3].startswith(today_date_str):
-                    today_records.append(row)
+            try:
+                header = next(reader)
+                today_records.append(header)
+                for row in reader:
+                    if row[3].startswith(today_date_str):
+                        today_records.append(row)
+            except StopIteration:
+                pass
         if len(today_records) > 1:
             output = io.StringIO()
             writer = csv.writer(output)
@@ -208,6 +217,27 @@ async def get_today_records_file(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("ملف السجلات الرئيسي غير موجود.")
     except Exception as e:
         await update.message.reply_text(f"حدث خطأ: {e}")
+
+async def records_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    try:
+        records = []
+        with open(CSV_FILE, mode='r', newline='', encoding='utf-8-sig') as file:
+            reader = csv.reader(file)
+            try:
+                header = next(reader)
+                for row in reader:
+                    if int(row[0]) == user_id:
+                        records.append(f"- {row[2]}: {row[3]}")
+            except StopIteration:
+                pass
+        if not records:
+            await update.message.reply_text("لم يتم العثور على أي سجلات لك.")
+            return
+        response_text = f"📋 سجلاتك:\n\n" + "\n".join(records)
+        await update.message.reply_text(response_text)
+    except FileNotFoundError:
+        await update.message.reply_text("لا توجد سجلات حتى الآن.")
 
 async def my_id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -235,7 +265,12 @@ def main():
             CommandHandler("remotecheckin", remote_checkin_start),
         ],
         states={
-            LOCATION: [MessageHandler(filters.LOCATION, location_handler)],
+            LOCATION: [
+                # معالجة الموقع المباشر (غير المعاد توجيهه) فقط
+                MessageHandler(filters.LOCATION & ~filters.FORWARDED, location_handler),
+                # معالجة الموقع المعاد توجيهه وإرسال رسالة رفض
+                MessageHandler(filters.LOCATION & filters.FORWARDED, forwarded_location_handler)
+            ],
             SELECT_USER_REMOTE: [CallbackQueryHandler(remote_checkin_button_handler)],
         },
         fallbacks=[CommandHandler("start", start_command), CommandHandler("cancel", cancel)],
