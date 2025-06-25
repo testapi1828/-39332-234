@@ -100,12 +100,25 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(welcome_message)
     return ConversationHandler.END
 
-async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- تم دمج دالة معالجة الموقع في دالة واحدة قوية ---
+async def unified_location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # الخطوة الأولى: التحقق من أن الموقع ليس معاد توجيهه
+    if update.message.forward_date:
+        await update.message.reply_text("❌ لا يمكن تسجيل الحضور باستخدام موقع معاد توجيهه. يرجى إرسال موقعك الحالي مباشرة.")
+        return ConversationHandler.END
+
+    # الخطوة الثانية: إذا كان الموقع مباشراً، أكمل عملية تسجيل الحضور
     user = update.effective_user
     user_location = update.message.location
     action = context.user_data.get("action", "غير محدد")
+    
+    if not action or action == "غير محدد":
+        await update.message.reply_text("حدث خطأ، يرجى البدء من جديد باستخدام /checkin أو /checkout.")
+        return ConversationHandler.END
+        
     distance = geodesic((user_location.latitude, user_location.longitude), TARGET_LOCATION).meters
     await update.message.reply_text("جاري التحقق من موقعك...", reply_markup=telegram.ReplyKeyboardRemove())
+    
     if distance <= MAX_DISTANCE_METERS:
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         save_record_to_csv(user.id, user.first_name, action, current_time)
@@ -118,14 +131,8 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             print(f"Failed to send notification to admin: {e}")
     else:
         await update.message.reply_text(f"❌ فشل التسجيل.\nأنت بعيد جداً عن الموقع المسموح به. المسافة الحالية هي {distance:.2f} متر، والحد المسموح هو {MAX_DISTANCE_METERS} متر.")
+    
     return ConversationHandler.END
-
-# --- دالة جديدة لمعالجة المواقع المعاد توجيهها ---
-async def forwarded_location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """ترفض أي موقع معاد توجيهه"""
-    await update.message.reply_text("❌ لا يمكن تسجيل الحضور باستخدام موقع معاد توجيهه. يرجى إرسال موقعك الحالي مباشرة.")
-    return ConversationHandler.END
-
 
 async def request_location(update: Update, context: ContextTypes.DEFAULT_TYPE, action: str):
     context.user_data["action"] = action
@@ -265,12 +272,8 @@ def main():
             CommandHandler("remotecheckin", remote_checkin_start),
         ],
         states={
-            LOCATION: [
-                # معالجة الموقع المباشر (غير المعاد توجيهه) فقط
-                MessageHandler(filters.LOCATION & ~filters.FORWARDED, location_handler),
-                # معالجة الموقع المعاد توجيهه وإرسال رسالة رفض
-                MessageHandler(filters.LOCATION & filters.FORWARDED, forwarded_location_handler)
-            ],
+            # استخدام دالة موحدة للتعامل مع الموقع
+            LOCATION: [MessageHandler(filters.LOCATION, unified_location_handler)],
             SELECT_USER_REMOTE: [CallbackQueryHandler(remote_checkin_button_handler)],
         },
         fallbacks=[CommandHandler("start", start_command), CommandHandler("cancel", cancel)],
