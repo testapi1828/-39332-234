@@ -44,7 +44,7 @@ def save_record_to_csv(user_id, user_name, action, timestamp):
 # --- دوال المهام ---
 async def send_file_periodically(application: Application):
     while True:
-        await asyncio.sleep(600)
+        await asyncio.sleep(14400)
         if ADMIN_ID == 123456789: # Kept placeholder here for safety
             print("ADMIN_ID placeholder is still in use. Skipping periodic file send.")
             continue
